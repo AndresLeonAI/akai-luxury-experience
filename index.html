@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es" class="dark scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AKAI - Restaurante Omakase</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Noto+Serif+JP:wght@200;300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "akai-black": "#050505",
+              "akai-card": "#0A0A0A",
+              "akai-red": "#A81C1C",
+              "akai-red-dark": "#7f1d1d",
+              "akai-red-bright": "#D91C1C",
+              "akai-ivory": "#E5E5E5",
+              "akai-muted": "#737373",
+              "akai-border": "#1F1F1F",
+            },
+            fontFamily: {
+              sans: ["Plus Jakarta Sans", "sans-serif"],
+              serif: ["Playfair Display", "serif"],
+              jp: ["Noto Serif JP", "serif"],
+              display: ["Cormorant Garamond", "serif"],
+            },
+            letterSpacing: {
+              widest: "0.2em",
+              ultra: "0.3em",
+            },
+            transitionTimingFunction: {
+              'luxury': 'cubic-bezier(0.16, 1, 0.3, 1)',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #050505;
+        color: #E5E5E5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #050505;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 2px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #A81C1C;
+      }
+      ::selection {
+        background: rgba(168, 28, 28, 0.3);
+        color: white;
+      }
+      .hanko-stamp {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #A81C1C;
+        color: #A81C1C;
+        font-family: 'Noto Serif JP', serif;
+        font-weight: 500;
+        padding: 6px 4px;
+        line-height: 1.2;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?deps=react@18.2.0,react-dom@18.2.0",
+    "framer-motion": "https://esm.sh/framer-motion@11.0.8?deps=react@18.2.0,react-dom@18.2.0",
+    "clsx": "https://esm.sh/clsx@2.1.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
