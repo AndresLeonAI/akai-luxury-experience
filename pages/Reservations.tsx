@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reveal, LineDraw } from '../components/motion';
 import {
@@ -12,6 +11,7 @@ import {
 } from '../components/reservations';
 import { EASING, DURATION } from '../lib/motion';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { apiJson } from '../lib/api';
 
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -21,7 +21,6 @@ const MONTH_NAMES = [
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const Reservations: React.FC = () => {
-  const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
 
   // Stepper state
@@ -36,14 +35,73 @@ const Reservations: React.FC = () => {
   // Waitlist modal
   const [showWaitlist, setShowWaitlist] = useState(false);
 
-  const handleDateSelect = (date: Date) => {
+  const [calendarAvailability, setCalendarAvailability] = useState<Record<string, 'available' | 'limited' | 'unavailable'>>({});
+  const [availableSlots, setAvailableSlots] = useState<Array<{ time: string; label: string; available: boolean; remaining?: number }> | null>(null);
+  const [isFetchingAvailability, setIsFetchingAvailability] = useState(false);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const toIsoDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  useEffect(() => {
+    const today = new Date();
+    const from = toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    const to = toIsoDate(new Date(today.getFullYear(), today.getMonth() + 3, 0));
+
+    apiJson<{ dates: Array<{ date: string; status: 'available' | 'limited' | 'unavailable' }> }>(
+      `/api/v1/availability/range?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    )
+      .then((data) => {
+        const map: Record<string, 'available' | 'limited' | 'unavailable'> = {};
+        for (const day of data.dates) map[day.date] = day.status;
+        setCalendarAvailability(map);
+      })
+      .catch(() => {
+        // Fallback: DatePicker has deterministic availability when backend is unavailable.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDateSelect = async (date: Date) => {
     setSelectedDate(date);
-    // Simulate checking availability - Sundays show waitlist
-    if (date.getDay() === 0) {
-      setShowWaitlist(true);
-    } else {
-      // Auto-advance to step 2 after date selection
-      setTimeout(() => setCurrentStep(2), 400);
+    setSelectedTime(null);
+    setAvailableSlots(null);
+    setCheckoutError(null);
+
+    const isoDate = toIsoDate(date);
+    setIsFetchingAvailability(true);
+    try {
+      const data = await apiJson<{
+        slots: Array<{
+          time: string;
+          label: string;
+          remaining: number;
+          status: 'available' | 'limited' | 'unavailable';
+        }>;
+      }>(`/api/v1/availability?date=${encodeURIComponent(isoDate)}`);
+
+      const slotsForUi = data.slots.map((s) => ({
+        time: s.time,
+        label: s.label,
+        available: s.status !== 'unavailable',
+        remaining: s.remaining,
+      }));
+      setAvailableSlots(slotsForUi);
+
+      if (!slotsForUi.some((s) => s.available)) {
+        setShowWaitlist(true);
+      } else {
+        setTimeout(() => setCurrentStep(2), 400);
+      }
+    } catch (err) {
+      setCheckoutError('No pudimos verificar disponibilidad. Intente de nuevo.');
+    } finally {
+      setIsFetchingAvailability(false);
     }
   };
 
@@ -51,13 +109,39 @@ const Reservations: React.FC = () => {
     setSelectedTime(time);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (currentStep === 1 && selectedDate) {
       setCurrentStep(2);
     } else if (currentStep === 2 && selectedTime) {
       setCurrentStep(3);
     } else if (currentStep === 3) {
-      navigate('/confirmation');
+      if (!selectedDate || !selectedTime) return;
+      if (isCreatingCheckout) return;
+
+      setIsCreatingCheckout(true);
+      setCheckoutError(null);
+      try {
+        const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+        const response = await apiJson<{
+          stripe: { checkoutUrl?: string | null };
+        }>('/api/v1/checkout-sessions', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': idempotencyKey },
+          body: JSON.stringify({
+            date: toIsoDate(selectedDate),
+            time: selectedTime,
+            guests,
+            notes,
+          }),
+        });
+
+        const checkoutUrl = response?.stripe?.checkoutUrl;
+        if (!checkoutUrl) throw new Error('Missing checkoutUrl');
+        window.location.assign(checkoutUrl);
+      } catch (err) {
+        setCheckoutError('No pudimos iniciar el pago. Intente de nuevo.');
+        setIsCreatingCheckout(false);
+      }
     }
   };
 
@@ -70,7 +154,7 @@ const Reservations: React.FC = () => {
   const canContinue = () => {
     if (currentStep === 1) return !!selectedDate;
     if (currentStep === 2) return !!selectedTime;
-    if (currentStep === 3) return true;
+    if (currentStep === 3) return !isCreatingCheckout;
     return false;
   };
 
@@ -131,6 +215,7 @@ const Reservations: React.FC = () => {
                   <DatePicker
                     selectedDate={selectedDate}
                     onDateSelect={handleDateSelect}
+                    availabilityByDate={calendarAvailability}
                   />
                 </motion.div>
               )}
@@ -168,6 +253,7 @@ const Reservations: React.FC = () => {
                         selectedTime={selectedTime}
                         onTimeSelect={handleTimeSelect}
                         date={selectedDate}
+                        slots={availableSlots ?? undefined}
                       />
                     </div>
 
@@ -288,6 +374,11 @@ const Reservations: React.FC = () => {
 
                 {/* Navigation Buttons */}
                 <div className="space-y-4 mt-16">
+                  {checkoutError && (
+                    <div className="border border-akai-red/20 bg-akai-card/60 p-4 text-[10px] text-white/70 tracking-wide">
+                      {checkoutError}
+                    </div>
+                  )}
                   {/* Back Button */}
                   {currentStep > 1 && (
                     <button
@@ -314,7 +405,7 @@ const Reservations: React.FC = () => {
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                     <span className="text-xs uppercase tracking-[0.2em] font-bold relative z-10">
-                      {currentStep === 3 ? 'Proceder al Pago' : 'Continuar'}
+                      {currentStep === 3 ? (isCreatingCheckout ? 'Redirigiendo…' : 'Proceder al Pago') : 'Continuar'}
                     </span>
                     <span className="material-symbols-outlined text-xl transform group-hover:translate-x-2 transition-transform duration-300 relative z-10">
                       arrow_right_alt

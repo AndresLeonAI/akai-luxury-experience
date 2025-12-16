@@ -7,6 +7,7 @@ interface TimeSlot {
     time: string;
     label: string;
     available: boolean;
+    remaining?: number;
 }
 
 interface TimeSlotCardProps {
@@ -70,11 +71,13 @@ interface TimeSlotGridProps {
     selectedTime: string | null;
     onTimeSelect: (time: string) => void;
     date: Date | null;
+    slots?: TimeSlot[];
 }
 
-export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({ selectedTime, onTimeSelect, date }) => {
-    // Generate slots based on date (deterministic availability)
-    const slots: TimeSlot[] = React.useMemo(() => {
+export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({ selectedTime, onTimeSelect, date, slots }) => {
+    // Generate slots based on date (deterministic availability fallback)
+    const computedSlots: TimeSlot[] = React.useMemo(() => {
+        if (slots && slots.length > 0) return slots;
         const baseSlots = [
             { time: '18:30', label: 'Early Evening', available: true },
             { time: '19:00', label: 'Sunset', available: true },
@@ -91,11 +94,11 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({ selectedTime, onTime
             // Simple deterministic logic: last slot unavailable on odd days
             available: !(index === 3 && dayOfMonth % 2 === 1),
         }));
-    }, [date]);
+    }, [date, slots]);
 
     return (
         <div className="grid grid-cols-2 gap-6">
-            {slots.map((slot) => (
+            {computedSlots.map((slot) => (
                 <TimeSlotCard
                     key={slot.time}
                     slot={slot}

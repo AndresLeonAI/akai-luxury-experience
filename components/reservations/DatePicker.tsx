@@ -6,6 +6,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 interface DatePickerProps {
     selectedDate: Date | null;
     onDateSelect: (date: Date) => void;
+    availabilityByDate?: Record<string, 'available' | 'limited' | 'unavailable'>;
 }
 
 /**
@@ -44,7 +45,7 @@ const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
  * Shows current month + 2 future months
  * Elegant styling with AKAI design tokens
  */
-const DatePicker: React.FC<DatePickerProps> = ({ selectedDate, onDateSelect }) => {
+const DatePicker: React.FC<DatePickerProps> = ({ selectedDate, onDateSelect, availabilityByDate }) => {
     const today = useMemo(() => new Date(), []);
     const [viewMonth, setViewMonth] = useState(today.getMonth());
     const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -113,6 +114,13 @@ const DatePicker: React.FC<DatePickerProps> = ({ selectedDate, onDateSelect }) =
         return date.toDateString() === selectedDate.toDateString();
     };
 
+    const toIsoDate = (date: Date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
     return (
         <div className="w-full max-w-2xl select-none">
             {/* Header */}
@@ -163,7 +171,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ selectedDate, onDateSelect }) =
                             return <div key={`empty-${index}`} className="aspect-square bg-akai-black" />;
                         }
 
-                        const availability = getAvailability(date, today);
+                        const isoDate = toIsoDate(date);
+                        const availability = availabilityByDate?.[isoDate] ?? getAvailability(date, today);
                         const selected = isSelected(date);
                         const isDisabled = availability === 'unavailable';
 

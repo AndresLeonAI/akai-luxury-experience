@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EASING } from '../../lib/motion';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { apiJson } from '../../lib/api';
 
 interface WaitlistModalProps {
     isOpen: boolean;
@@ -21,16 +22,39 @@ const WaitlistModal: React.FC<WaitlistModalProps> = ({ isOpen, onClose, date }) 
     const prefersReduced = useReducedMotion();
     const [email, setEmail] = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const toIsoDate = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // UI only - no actual backend
-        setSubmitted(true);
-        setTimeout(() => {
-            onClose();
-            setSubmitted(false);
-            setEmail('');
-        }, 2000);
+        if (!date || submitting) return;
+        setSubmitting(true);
+        setError(null);
+
+        try {
+            await apiJson('/api/v1/waitlist', {
+                method: 'POST',
+                body: JSON.stringify({ date: toIsoDate(date), email }),
+            });
+            setSubmitted(true);
+            setTimeout(() => {
+                onClose();
+                setSubmitted(false);
+                setEmail('');
+                setError(null);
+            }, 2000);
+        } catch (_err) {
+            setError('No pudimos registrarle en la lista. Intente de nuevo.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const formatDate = (d: Date) => {
@@ -108,11 +132,18 @@ const WaitlistModal: React.FC<WaitlistModalProps> = ({ isOpen, onClose, date }) 
                                                 />
                                             </div>
 
+                                            {error && (
+                                                <div className="text-[10px] text-akai-red-bright tracking-wide">
+                                                    {error}
+                                                </div>
+                                            )}
+
                                             <button
                                                 type="submit"
-                                                className="w-full bg-akai-red text-white h-12 flex items-center justify-center text-xs uppercase tracking-[0.2em] font-bold hover:bg-akai-red-dark transition-colors"
+                                                disabled={submitting}
+                                                className="w-full bg-akai-red text-white h-12 flex items-center justify-center text-xs uppercase tracking-[0.2em] font-bold hover:bg-akai-red-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
-                                                Unirse a Lista de Espera
+                                                {submitting ? 'Enviando…' : 'Unirse a Lista de Espera'}
                                             </button>
                                         </form>
                                     </>

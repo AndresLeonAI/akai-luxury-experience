@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReservationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  REQUIRES_MANUAL_REVIEW
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model ServiceSlot {
+  id               String        @id @default(uuid()) @db.Uuid
+  serviceDate      String
+  startTime        String
+  label            String?
+  capacityTotal    Int
+  capacityConfirmed Int          @default(0)
+  capacityHeld     Int           @default(0)
+  isEnabled        Boolean       @default(true)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
+
+  reservations     Reservation[]
+
+  @@unique([serviceDate, startTime])
+  @@index([serviceDate])
+}
+
+model Reservation {
+  id                    String            @id @default(uuid()) @db.Uuid
+  referenceCode         String            @unique
+  slotId                String            @db.Uuid
+  status                ReservationStatus
+  guests                Int
+  notes                 String?
+  currency              String
+  pricePerPersonAmount  Int
+  depositBps            Int
+  depositAmount         Int
+  totalAmount           Int
+  holdExpiresAt         DateTime          @db.Timestamptz(6)
+  stripeCheckoutSessionId String?         @unique
+  stripePaymentIntentId String?           @unique
+  stripeCustomerEmail   String?
+  paidAt                DateTime?         @db.Timestamptz(6)
+  confirmedAt           DateTime?         @db.Timestamptz(6)
+  cancelledAt           DateTime?         @db.Timestamptz(6)
+  createdAt             DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime          @updatedAt @db.Timestamptz(6)
+
+  slot                  ServiceSlot       @relation(fields: [slotId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stripeEvents          StripeEvent[]
+  idempotencyKeys       IdempotencyKey[]
+
+  @@index([slotId, status])
+  @@index([holdExpiresAt])
+}
+
+model IdempotencyKey {
+  id           String            @id @default(uuid()) @db.Uuid
+  key          String
+  scope        String
+  requestHash  String
+  status       IdempotencyStatus
+  responseBody Json?
+  reservationId String?          @db.Uuid
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
+  expiresAt    DateTime?         @db.Timestamptz(6)
+
+  reservation  Reservation?      @relation(fields: [reservationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([key, scope])
+  @@index([reservationId])
+}
+
+model StripeEvent {
+  id            String        @id @default(uuid()) @db.Uuid
+  eventId       String        @unique
+  type          String
+  livemode      Boolean
+  apiVersion    String?
+  payload       Json
+  processedAt   DateTime?     @db.Timestamptz(6)
+  reservationId String?       @db.Uuid
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+
+  reservation   Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+}
+
+model WaitlistEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  serviceDate String
+  email       String
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([serviceDate, email])
+  @@index([serviceDate])
+  @@index([email])
+}
+
